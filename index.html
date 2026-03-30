@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Control Financiero</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+
+<div class="container" id="appContainer" style="display:none">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-top">
+      <div class="header-badge">💼 Sistema Financiero</div>
+      <div class="user-info">
+        <span class="user-avatar" id="userAvatar">U</span>
+        <span class="user-name"   id="userName">Usuario</span>
+        <button class="btn-logout" onclick="cerrarSesion()" title="Cerrar sesión">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          Salir
+        </button>
+      </div>
+    </div>
+    <h1>Control Financiero Mundo de la Tecnologia</h1>
+    <p>Gestiona tus ingresos y egresos de forma clara y precisa</p>
+  </div>
+
+  <!-- Navegación -->
+  <div class="nav-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:24px;flex-wrap:wrap;">
+    <a href="control-financiero.html" class="nav-link active" style="font-size:0.82rem;font-weight:600;padding:7px 16px;border-radius:20px;border:1.5px solid var(--accent);background:var(--accent);color:white;text-decoration:none;">💰 Control Financiero</a>
+    <a href="precios.html" class="nav-link" style="font-size:0.82rem;font-weight:600;padding:7px 16px;border-radius:20px;border:1.5px solid var(--border);background:rgba(255,255,255,0.6);color:var(--text2);text-decoration:none;">🛠️ Tarifas y Productos</a>
+  </div>
+
+  <!-- Capital Banner -->
+  <div class="capital-banner">
+    <div>
+      <div class="capital-label">Capital Inicial</div>
+      <div class="capital-amount">$1.977.000</div>
+    </div>
+    <span style="font-size:2.5rem; opacity:0.5;">🏦</span>
+  </div>
+
+  <!-- Form Card -->
+  <div class="card">
+    <div class="card-title">➕ Nuevo Movimiento</div>
+    <div class="form-grid">
+
+      <div class="field">
+        <label>Fecha</label>
+        <input type="date" id="fecha">
+      </div>
+
+      <div class="field">
+        <label>Descripción</label>
+        <input type="text" id="descripcion" placeholder="Ej: Venta de producto...">
+      </div>
+
+      <div class="field">
+        <label>Valor ($)</label>
+        <input
+          type="text"
+          id="valor"
+          placeholder="0"
+          inputmode="decimal"
+          autocomplete="off"
+          oninput="formatearValor(this)"
+          onkeydown="bloquearCaracteresInvalidos(event)"
+        >
+      </div>
+
+      <div class="field">
+        <label>Tipo</label>
+        <select id="tipo">
+          <option value="ingreso">📈 Ingreso</option>
+          <option value="egreso">📉 Egreso</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="btn-add" onclick="agregarMovimiento()">Agregar →</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="resumen-grid">
+    <div class="stat-card ingresos">
+      <div class="stat-icon">📈</div>
+      <div class="stat-label">Total Ingresos</div>
+      <div class="stat-value">$<span id="totalIngresos">0</span></div>
+    </div>
+    <div class="stat-card egresos">
+      <div class="stat-icon">📉</div>
+      <div class="stat-label">Total Egresos</div>
+      <div class="stat-value">$<span id="totalEgresos">0</span></div>
+    </div>
+    <div class="stat-card saldo">
+      <div class="stat-icon">💰</div>
+      <div class="stat-label">Saldo Actual</div>
+      <div class="stat-value">$<span id="saldo">1.977.000</span></div>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div class="table-card">
+    <div class="card-title">📋 Historial de Movimientos</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Descripción</th>
+          <th>Tipo</th>
+          <th style="text-align:right">Valor</th>
+        </tr>
+      </thead>
+      <tbody id="tabla">
+        <tr id="emptyRow">
+          <td colspan="4">
+            <div class="empty-state">
+              <span class="icon">📂</span>
+              No hay movimientos registrados aún
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+  /* ── Protección de sesión ── */
+  const sesionRaw = localStorage.getItem('cf_sesion');
+  if (!sesionRaw) {
+    window.location.href = 'login.html';
+  } else {
+    const sesion = JSON.parse(sesionRaw);
+    document.getElementById('userName').textContent   = sesion.nombre;
+    document.getElementById('userAvatar').textContent = sesion.nombre.charAt(0).toUpperCase();
+    document.getElementById('appContainer').style.display = 'block';
+  }
+
+  function cerrarSesion() {
+    localStorage.removeItem('cf_sesion');
+    window.location.href = 'login.html';
+  }
+
+  /* ── Estado financiero ── */
+  let ingresos = 0;
+  let egresos  = 0;
+  const capitalInicial = 1977000;
+
+  /* ── Formateador de valor ── */
+  function formatearValor(input) {
+    const cursorPos        = input.selectionStart;
+    const longitudAnterior = input.value.length;
+    const partes           = input.value.split(',');
+    const parteEntera      = partes[0].replace(/\D/g, '');
+    const parteDecimal     = partes.length > 1
+      ? partes[1].replace(/\D/g, '').slice(0, 2) : null;
+    const enteraFormateada = parteEntera
+      ? parteEntera.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+    input.value = parteDecimal !== null
+      ? enteraFormateada + ',' + parteDecimal : enteraFormateada;
+    const nuevoCursor = cursorPos + (input.value.length - longitudAnterior);
+    input.setSelectionRange(nuevoCursor, nuevoCursor);
+  }
+
+  function bloquearCaracteresInvalidos(e) {
+    const permitidos = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'];
+    if (permitidos.includes(e.key)) return;
+    if (e.key === ',') {
+      if (e.target.value.includes(',')) e.preventDefault();
+      return;
+    }
+    if (!/^\d$/.test(e.key)) e.preventDefault();
+  }
+
+  function getRawValor() {
+    return parseFloat(
+      document.getElementById('valor').value.replace(/\./g, '').replace(',', '.')
+    ) || 0;
+  }
+
+  function fmt(n) {
+    return n.toLocaleString('es-CO', {
+      minimumFractionDigits: n % 1 !== 0 ? 2 : 0,
+      maximumFractionDigits: 2
+    });
+  }
+
+  /* ── Agregar movimiento ── */
+  function agregarMovimiento() {
+    const fecha       = document.getElementById('fecha').value;
+    const descripcion = document.getElementById('descripcion').value.trim();
+    const valor       = getRawValor();
+    const tipo        = document.getElementById('tipo').value;
+
+    if (!fecha || !descripcion || valor <= 0) {
+      shake(document.querySelector('.card'));
+      return;
+    }
+
+    const empty = document.getElementById('emptyRow');
+    if (empty) empty.remove();
+
+    const tabla     = document.getElementById('tabla');
+    const fila      = document.createElement('tr');
+    const esIngreso = tipo === 'ingreso';
+
+    const fechaFmt = new Date(fecha + 'T00:00:00').toLocaleDateString('es-CO', {
+      day: '2-digit', month: 'short', year: 'numeric'
+    });
+
+    fila.innerHTML = `
+      <td>${fechaFmt}</td>
+      <td>${descripcion}</td>
+      <td><span class="tipo-badge tipo-${tipo}">${esIngreso ? '↑' : '↓'} ${tipo}</span></td>
+      <td style="text-align:right" class="${esIngreso ? 'valor-pos' : 'valor-neg'}">
+        ${esIngreso ? '+' : '-'}$${fmt(valor)}
+      </td>`;
+
+    tabla.appendChild(fila);
+
+    if (esIngreso) ingresos += valor;
+    else           egresos  += valor;
+
+    actualizarResumen();
+    document.getElementById('descripcion').value = '';
+    document.getElementById('valor').value       = '';
+  }
+
+  /* ── Actualizar resumen ── */
+  function actualizarResumen() {
+    document.getElementById('totalIngresos').innerText = fmt(ingresos);
+    document.getElementById('totalEgresos').innerText  = fmt(egresos);
+    const saldo = capitalInicial + ingresos - egresos;
+    const el    = document.getElementById('saldo');
+    el.innerText = fmt(saldo);
+    el.closest('.stat-value').style.color = saldo >= capitalInicial
+      ? 'var(--green)' : 'var(--red)';
+  }
+
+  /* ── Shake ── */
+  function shake(el) {
+    el.style.animation = 'none';
+    el.offsetHeight;
+    el.style.animation = 'shake 0.4s ease';
+    setTimeout(() => el.style.animation = '', 400);
+  }
+</script>
+
+</body>
+</html>

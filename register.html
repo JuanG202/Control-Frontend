@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Registrarse — Control Financiero</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+
+<div class="auth-screen">
+  <div class="auth-card">
+
+    <div class="auth-logo">
+      <span class="auth-logo-icon">🏦</span>
+      <h2>Control Financiero</h2>
+      <p>Empresarial</p>
+    </div>
+
+    <div class="auth-panel active">
+      <h3 class="auth-title">Crear cuenta</h3>
+      <p class="auth-sub">Completa los datos para registrarte</p>
+
+      <div class="auth-field">
+        <label>Nombre completo</label>
+        <div class="input-wrap">
+          <span class="input-icon">✏️</span>
+          <input type="text" id="regNombre" placeholder="Tu nombre completo" autocomplete="name">
+        </div>
+      </div>
+
+      <div class="auth-field">
+        <label>Usuario</label>
+        <div class="input-wrap">
+          <span class="input-icon">👤</span>
+          <input type="text" id="regUsuario" placeholder="Elige un usuario" autocomplete="username">
+        </div>
+      </div>
+
+      <div class="auth-field">
+        <label>Contraseña</label>
+        <div class="input-wrap">
+          <span class="input-icon">🔒</span>
+          <input type="password" id="regPassword" placeholder="Crea una contraseña" autocomplete="new-password">
+          <button type="button" class="eye-btn" onclick="togglePassword('regPassword', this)" title="Ver contraseña">
+            <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="registroError" class="auth-error" style="display:none"></div>
+      <div id="registroOk"    class="auth-ok"    style="display:none"></div>
+
+      <button class="auth-btn" onclick="registrarse()">Crear Cuenta →</button>
+
+      <p class="auth-switch">
+        ¿Ya tienes cuenta?
+        <a href="login.html">Inicia sesión</a>
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function getUsuarios() {
+    return JSON.parse(localStorage.getItem('cf_usuarios') || '{}');
+  }
+  function guardarUsuarios(u) {
+    localStorage.setItem('cf_usuarios', JSON.stringify(u));
+  }
+
+  function togglePassword(inputId, btn) {
+    const input    = document.getElementById(inputId);
+    const esOculta = input.type === 'password';
+    input.type     = esOculta ? 'text' : 'password';
+    btn.innerHTML  = esOculta
+      ? `<svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+           <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+           <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+           <line x1="1" y1="1" x2="23" y2="23"/>
+         </svg>`
+      : `<svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+           <circle cx="12" cy="12" r="3"/>
+         </svg>`;
+  }
+
+  function registrarse() {
+    const nombre   = document.getElementById('regNombre').value.trim();
+    const usuario  = document.getElementById('regUsuario').value.trim().toLowerCase();
+    const password = document.getElementById('regPassword').value;
+    const errEl    = document.getElementById('registroError');
+    const okEl     = document.getElementById('registroOk');
+
+    errEl.style.display = 'none';
+    okEl.style.display  = 'none';
+
+    if (!nombre || !usuario || !password) {
+      errEl.textContent   = '⚠️ Por favor completa todos los campos.';
+      errEl.style.display = 'block';
+      shake(document.querySelector('.auth-card'));
+      return;
+    }
+    if (usuario.length < 3) {
+      errEl.textContent   = '⚠️ El usuario debe tener al menos 3 caracteres.';
+      errEl.style.display = 'block';
+      return;
+    }
+    if (password.length < 4) {
+      errEl.textContent   = '⚠️ La contraseña debe tener al menos 4 caracteres.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    const usuarios = getUsuarios();
+    if (usuarios[usuario]) {
+      errEl.textContent   = '⚠️ Ese usuario ya existe. Elige otro.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    usuarios[usuario] = { nombre, password };
+    guardarUsuarios(usuarios);
+
+    okEl.textContent   = '✅ Cuenta creada. Redirigiendo al login...';
+    okEl.style.display = 'block';
+
+    document.getElementById('regNombre').value   = '';
+    document.getElementById('regUsuario').value  = '';
+    document.getElementById('regPassword').value = '';
+
+    setTimeout(() => window.location.href = 'login.html', 1500);
+  }
+
+  function shake(el) {
+    el.style.animation = 'none';
+    el.offsetHeight;
+    el.style.animation = 'shake 0.4s ease';
+    setTimeout(() => el.style.animation = '', 400);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') registrarse();
+  });
+</script>
+
+</body>
+</html>
