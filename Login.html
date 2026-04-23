@@ -10,7 +10,6 @@
 
 <div class="auth-screen">
   <div class="auth-card">
-
     <div class="auth-logo">
       <span class="auth-logo-icon">🏦</span>
       <h2>Control Financiero</h2>
@@ -52,76 +51,71 @@
         <a href="register.html">Regístrate aquí</a>
       </p>
     </div>
-
   </div>
 </div>
 
 <script>
-  // Si ya hay sesión activa, ir directo a la app
   if (localStorage.getItem('cf_sesion')) {
     window.location.href = 'index.html';
   }
 
-  function getUsuarios() {
-    return JSON.parse(localStorage.getItem('cf_usuarios') || '{}');
-  }
-
   function togglePassword(inputId, btn) {
-    const input   = document.getElementById(inputId);
+    const input = document.getElementById(inputId);
     const esOculta = input.type === 'password';
-    input.type    = esOculta ? 'text' : 'password';
+    input.type = esOculta ? 'text' : 'password';
     btn.innerHTML = esOculta
-      ? `<svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-           <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-           <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-           <line x1="1" y1="1" x2="23" y2="23"/>
-         </svg>`
-      : `<svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-           <circle cx="12" cy="12" r="3"/>
-         </svg>`;
+      ? `<svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`
+      : `<svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
   }
 
-  function iniciarSesion() {
-    const usuario  = document.getElementById('loginUsuario').value.trim().toLowerCase();
+  async function iniciarSesion() {
+    const usuario = document.getElementById('loginUsuario').value.trim().toLowerCase();
     const password = document.getElementById('loginPassword').value;
-    const errEl    = document.getElementById('loginError');
+    const errEl = document.getElementById('loginError');
 
     if (!usuario || !password) {
-      errEl.textContent   = '⚠️ Ingresa usuario y contraseña.';
-      errEl.style.display = 'block';
-      shake(document.querySelector('.auth-card'));
+      mostrarError('⚠️ Ingresa usuario y contraseña.');
       return;
     }
 
-    const cuenta = getUsuarios()[usuario];
+    try {
+      const response = await fetch('http://localhost:3000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario, password })
+      });
 
-    if (!cuenta || cuenta.password !== password) {
-      errEl.textContent   = '❌ Usuario o contraseña incorrectos.';
-      errEl.style.display = 'block';
-      shake(document.querySelector('.auth-card'));
-      return;
+      const data = await response.json();
+
+      if (response.ok) {
+        // Guardamos el ID de MongoDB y el nombre
+        localStorage.setItem('cf_sesion', JSON.stringify({
+          id: data.id,
+          nombre: data.nombre
+        }));
+        window.location.href = 'index.html';
+      } else {
+        mostrarError('❌ ' + (data.error || 'Credenciales incorrectas'));
+      }
+    } catch (error) {
+      mostrarError('❌ No se pudo conectar con el servidor.');
     }
+  }
 
-    // Guardar sesión y redirigir
-    localStorage.setItem('cf_sesion', JSON.stringify({
-      usuario,
-      nombre: cuenta.nombre
-    }));
-    window.location.href = 'index.html';
+  function mostrarError(msg) {
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = msg;
+    errEl.style.display = 'block';
+    shake(document.querySelector('.auth-card'));
   }
 
   function shake(el) {
     el.style.animation = 'none';
     el.offsetHeight;
     el.style.animation = 'shake 0.4s ease';
-    setTimeout(() => el.style.animation = '', 400);
   }
 
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Enter') iniciarSesion();
-  });
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') iniciarSesion(); });
 </script>
-
 </body>
 </html>

@@ -211,8 +211,8 @@
 
   <!-- Tabs -->
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('servicios')">🔧 Servicios</button>
-    <button class="tab-btn"       onclick="switchTab('productos')">📦 Productos</button>
+    <button class="tab-btn active" onclick="switchTab('servicios', this)">🔧 Servicios</button>
+<button class="tab-btn" onclick="switchTab('productos', this)">📦 Productos</button>
   </div>
 
   <!-- ══════════════════ TAB SERVICIOS ══════════════════ -->
@@ -344,299 +344,170 @@
 
 </div><!-- /container -->
 
+
 <script>
-  /* ═══════════════════════════════════════
-     SESIÓN
-  ═══════════════════════════════════════ */
-  const sesionRaw = localStorage.getItem('cf_sesion');
-  if (!sesionRaw) {
-    window.location.href = 'login.html';
-  } else {
-    const sesion = JSON.parse(sesionRaw);
-    document.getElementById('userName').textContent   = sesion.nombre;
-    document.getElementById('userAvatar').textContent = sesion.nombre.charAt(0).toUpperCase();
-    document.getElementById('appContainer').style.display = 'block';
+/* ───────── SESIÓN ───────── */
+const sesionRaw = localStorage.getItem('cf_sesion');
+if (!sesionRaw) {
+  window.location.href = 'login.html';
+} else {
+  const sesion = JSON.parse(sesionRaw);
+  document.getElementById('userName').textContent = sesion.nombre;
+  document.getElementById('userAvatar').textContent = sesion.nombre.charAt(0).toUpperCase();
+  document.getElementById('appContainer').style.display = 'block';
+}
+
+function cerrarSesion() {
+  localStorage.removeItem('cf_sesion');
+  window.location.href = 'login.html';
+}
+
+/* ───────── TABS ───────── */
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-panel').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+  document.getElementById('tab-' + tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ───────── FORMATO ───────── */
+function formatearValor(input) {
+  let valor = input.value.replace(/\D/g, '');
+  input.value = valor.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+function bloquearCaracteresInvalidos(e) {
+  if (!/[0-9]/.test(e.key) && !['Backspace','ArrowLeft','ArrowRight','Delete'].includes(e.key)) {
+    e.preventDefault();
+  }
+}
+
+function getRaw(id) {
+  return parseFloat(document.getElementById(id).value.replace(/\./g,'')) || 0;
+}
+
+function fmt(n) {
+  return n.toLocaleString('es-CO');
+}
+
+/* ───────── PREVIEW PRODUCTO ───────── */
+function actualizarPreviewProducto() {
+  const costo = getRaw('prodCosto');
+  const margen = parseFloat(document.getElementById('margenPct').value) || 15;
+  const venta = costo * (1 + margen / 100);
+
+  document.getElementById('margenLabel').textContent = margen;
+
+  document.getElementById('precioPreview').innerHTML =
+    costo > 0
+      ? `<div><span class="label-small">Precio venta</span>$${fmt(venta)}</div>`
+      : '—';
+}
+
+/* ───────── SERVICIOS ───────── */
+async function agregarServicio() {
+  const nombre = document.getElementById('svcNombre').value.trim();
+  const precio = getRaw('svcPrecio');
+  const sesion = JSON.parse(localStorage.getItem('cf_sesion'));
+
+  if (!nombre || precio <= 0) return;
+
+  await fetch('http://localhost:3000/api/servicios', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre, precio, userId: sesion.id })
+  });
+
+  location.reload();
+}
+
+async function renderServicios() {
+  const sesion = JSON.parse(localStorage.getItem('cf_sesion'));
+  const res = await fetch(`http://localhost:3000/api/servicios/${sesion.id}`);
+  const lista = await res.json();
+
+  const tbody = document.getElementById('tablaServicios');
+  const counter = document.getElementById('cntServicios');
+
+  counter.textContent = lista.length + " servicios";
+
+  tbody.innerHTML = lista.length
+    ? lista.map((s,i)=>`
+        <tr>
+          <td>${i+1}</td>
+          <td>${s.nombre}</td>
+          <td style="text-align:right">$${fmt(s.precio)}</td>
+          <td></td>
+        </tr>`).join('')
+    : `<tr><td colspan="4">Sin servicios</td></tr>`;
+}
+
+/* ───────── PRODUCTOS ───────── */
+console.log("CLICK agregar producto");
+async function agregarProducto() {
+  const nombre = document.getElementById('prodNombre').value.trim();
+  const costo  = getRaw('prodCosto');
+  const margen = parseFloat(document.getElementById('margenPct').value) || 15;
+  const sesion = JSON.parse(localStorage.getItem('cf_sesion'));
+
+  if (!nombre || costo <= 0) return;
+
+  const precioVenta = costo * (1 + margen / 100);
+
+  const res = await fetch('http://localhost:3000/api/productos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      nombre,
+      costo,
+      precioVenta,
+      margen,
+      userId: sesion.id
+    })
+  });
+
+  if (!res.ok) {
+    console.error("Error guardando producto");
+    return;
   }
 
-  function cerrarSesion() {
-    localStorage.removeItem('cf_sesion');
-    window.location.href = 'login.html';
-  }
+ 
+  document.getElementById('prodNombre').value = '';
+  document.getElementById('prodCosto').value  = '';
 
-  /* ═══════════════════════════════════════
-     DATOS (persistencia en localStorage)
-  ═══════════════════════════════════════ */
-  function getServicios() {
-    return JSON.parse(localStorage.getItem('cf_servicios') || '[]');
-  }
-  function guardarServicios(arr) {
-    localStorage.setItem('cf_servicios', JSON.stringify(arr));
-  }
-
-  function getProductos() {
-    return JSON.parse(localStorage.getItem('cf_productos') || '[]');
-  }
-  function guardarProductos(arr) {
-    localStorage.setItem('cf_productos', JSON.stringify(arr));
-  }
-
-  /* ═══════════════════════════════════════
-     TABS
-  ═══════════════════════════════════════ */
-  function switchTab(cual) {
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('tab-' + cual).classList.add('active');
-    event.target.classList.add('active');
-  }
-
-  /* ═══════════════════════════════════════
-     FORMATEO DE NÚMEROS
-  ═══════════════════════════════════════ */
-  function formatearValor(input) {
-    const cursorPos        = input.selectionStart;
-    const longitudAnterior = input.value.length;
-    const partes           = input.value.split(',');
-    const parteEntera      = partes[0].replace(/\D/g, '');
-    const parteDecimal     = partes.length > 1
-      ? partes[1].replace(/\D/g, '').slice(0, 2) : null;
-    const enteraFormateada = parteEntera
-      ? parteEntera.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
-    input.value = parteDecimal !== null
-      ? enteraFormateada + ',' + parteDecimal : enteraFormateada;
-    const nuevoCursor = cursorPos + (input.value.length - longitudAnterior);
-    input.setSelectionRange(nuevoCursor, nuevoCursor);
-  }
-
-  function bloquearCaracteresInvalidos(e) {
-    const permitidos = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'];
-    if (permitidos.includes(e.key)) return;
-    if (e.key === ',') {
-      if (e.target.value.includes(',')) e.preventDefault();
-      return;
-    }
-    if (!/^\d$/.test(e.key)) e.preventDefault();
-  }
-
-  function getRaw(inputId) {
-    return parseFloat(
-      document.getElementById(inputId).value.replace(/\./g, '').replace(',', '.')
-    ) || 0;
-  }
-
-  function fmt(n) {
-    return n.toLocaleString('es-CO', {
-      minimumFractionDigits: n % 1 !== 0 ? 2 : 0,
-      maximumFractionDigits: 2
-    });
-  }
-
-  /* ═══════════════════════════════════════
-     PREVIEW PRECIO VENTA EN TIEMPO REAL
-  ═══════════════════════════════════════ */
-  function actualizarPreviewProducto() {
-    const costo  = getRaw('prodCosto');
-    const margen = parseFloat(document.getElementById('margenPct').value) || 15;
-    const venta  = costo * (1 + margen / 100);
-    const label  = document.getElementById('margenLabel');
-    const prev   = document.getElementById('precioPreview');
-
-    if (label) label.textContent = margen;
-
-    if (costo > 0) {
-      prev.innerHTML = `
-        <div>
-          <span class="label-small">Precio de venta</span>
-          $${fmt(venta)}
-        </div>`;
-    } else {
-      prev.innerHTML = '<span style="color:var(--text3);font-weight:400">Ingresa el costo</span>';
-    }
-  }
-
-  /* ═══════════════════════════════════════
-     SERVICIOS — CRUD
-  ═══════════════════════════════════════ */
-  function renderServicios() {
-    const lista  = getServicios();
-    const tbody  = document.getElementById('tablaServicios');
-    const counter = document.getElementById('cntServicios');
-    counter.textContent = lista.length + (lista.length === 1 ? ' servicio' : ' servicios');
-
-    if (lista.length === 0) {
-      tbody.innerHTML = `<tr id="emptyServicios"><td colspan="4">
-        <div class="empty-state"><span class="icon">🔧</span>Aún no has agregado servicios</div>
-      </td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = lista.map((s, i) => `
-      <tr id="srv-row-${i}">
-        <td style="color:var(--text3);font-size:0.8rem;font-weight:600">${i + 1}</td>
-        <td>${s.nombre}</td>
-        <td class="col-precio">$${fmt(s.precio)}</td>
-        <td style="text-align:center">
-          <button class="btn-icon" onclick="editarServicio(${i})" title="Editar">✏️</button>
-          <button class="btn-icon delete" onclick="eliminarServicio(${i})" title="Eliminar">🗑️</button>
-        </td>
-      </tr>`).join('');
-  }
-
-  function agregarServicio() {
-    const nombre = document.getElementById('svcNombre').value.trim();
-    const precio = getRaw('svcPrecio');
-
-    if (!nombre || precio <= 0) {
-      shake(document.querySelector('#tab-servicios .card'));
-      return;
-    }
-
-    const lista = getServicios();
-    lista.push({ nombre, precio });
-    guardarServicios(lista);
-    renderServicios();
-
-    document.getElementById('svcNombre').value  = '';
-    document.getElementById('svcPrecio').value  = '';
-  }
-
-  function eliminarServicio(i) {
-    if (!confirm('¿Eliminar este servicio?')) return;
-    const lista = getServicios();
-    lista.splice(i, 1);
-    guardarServicios(lista);
-    renderServicios();
-  }
-
-  function editarServicio(i) {
-    const lista = getServicios();
-    const s     = lista[i];
-
-    // Rellenar formulario y cambiar botón
-    document.getElementById('svcNombre').value = s.nombre;
-    document.getElementById('svcPrecio').value = fmt(s.precio);
-
-    // Quitar el item original y convertir el botón en "Guardar cambios"
-    lista.splice(i, 1);
-    guardarServicios(lista);
-    renderServicios();
-
-    const btn = document.querySelector('#tab-servicios .btn-add');
-    btn.textContent = 'Guardar ✓';
-    btn.style.background = 'var(--green)';
-    btn.onclick = () => {
-      btn.textContent = 'Agregar →';
-      btn.style.background = '';
-      btn.onclick = agregarServicio;
-      agregarServicio();
-    };
-    document.getElementById('svcNombre').focus();
-  }
-
-  /* ═══════════════════════════════════════
-     PRODUCTOS — CRUD
-  ═══════════════════════════════════════ */
-  function renderProductos() {
-    const lista   = getProductos();
-    const counter = document.getElementById('cntProductos');
-    counter.textContent = lista.length + (lista.length === 1 ? ' producto' : ' productos');
-    const tbody   = document.getElementById('tablaProductos');
-
-    if (lista.length === 0) {
-      tbody.innerHTML = `<tr id="emptyProductos"><td colspan="6">
-        <div class="empty-state"><span class="icon">📦</span>Aún no has agregado productos</div>
-      </td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = lista.map((p, i) => {
-      const ganancia = p.precioVenta - p.costo;
-      const margenReal = ((ganancia / p.costo) * 100).toFixed(1);
-      return `
-        <tr id="prod-row-${i}">
-          <td style="color:var(--text3);font-size:0.8rem;font-weight:600">${i + 1}</td>
-          <td>${p.nombre}</td>
-          <td class="col-costo">$${fmt(p.costo)}</td>
-          <td class="col-venta">$${fmt(p.precioVenta)}</td>
-          <td class="col-margen"><span class="margen-badge">+${margenReal}%</span></td>
-          <td style="text-align:center">
-            <button class="btn-icon" onclick="editarProducto(${i})" title="Editar">✏️</button>
-            <button class="btn-icon delete" onclick="eliminarProducto(${i})" title="Eliminar">🗑️</button>
-          </td>
-        </tr>`;
-    }).join('');
-  }
-
-  function agregarProducto() {
-    const nombre = document.getElementById('prodNombre').value.trim();
-    const costo  = getRaw('prodCosto');
-    const margen = parseFloat(document.getElementById('margenPct').value) || 15;
-
-    if (!nombre || costo <= 0) {
-      shake(document.querySelector('#tab-productos .card'));
-      return;
-    }
-
-    const precioVenta = costo * (1 + margen / 100);
-    const lista = getProductos();
-    lista.push({ nombre, costo, precioVenta, margen });
-    guardarProductos(lista);
-    renderProductos();
-
-    document.getElementById('prodNombre').value = '';
-    document.getElementById('prodCosto').value  = '';
-    actualizarPreviewProducto();
-  }
-
-  function eliminarProducto(i) {
-    if (!confirm('¿Eliminar este producto?')) return;
-    const lista = getProductos();
-    lista.splice(i, 1);
-    guardarProductos(lista);
-    renderProductos();
-  }
-
-  function editarProducto(i) {
-    const lista = getProductos();
-    const p     = lista[i];
-
-    document.getElementById('prodNombre').value = p.nombre;
-    document.getElementById('prodCosto').value  = fmt(p.costo);
-    document.getElementById('margenPct').value  = p.margen;
-    actualizarPreviewProducto();
-
-    lista.splice(i, 1);
-    guardarProductos(lista);
-    renderProductos();
-
-    const btn = document.querySelector('#tab-productos .btn-add');
-    btn.textContent = 'Guardar ✓';
-    btn.style.background = 'var(--green)';
-    btn.onclick = () => {
-      btn.textContent = 'Agregar →';
-      btn.style.background = '';
-      btn.onclick = agregarProducto;
-      agregarProducto();
-    };
-    document.getElementById('prodNombre').focus();
-  }
-
-  /* ═══════════════════════════════════════
-     UTILIDADES
-  ═══════════════════════════════════════ */
-  function shake(el) {
-    el.style.animation = 'none';
-    el.offsetHeight;
-    el.style.animation = 'shake 0.4s ease';
-    setTimeout(() => el.style.animation = '', 400);
-  }
-
-  /* ═══════════════════════════════════════
-     INICIALIZAR
-  ═══════════════════════════════════════ */
-  renderServicios();
-  renderProductos();
   actualizarPreviewProducto();
+
+  await renderProductos();
+}
+
+async function renderProductos() {
+  const sesion = JSON.parse(localStorage.getItem('cf_sesion'));
+  const res = await fetch(`http://localhost:3000/api/productos/${sesion.id}`);
+  const lista = await res.json();
+
+  const tbody = document.getElementById('tablaProductos');
+  const counter = document.getElementById('cntProductos');
+
+  counter.textContent = lista.length + " productos";
+
+  tbody.innerHTML = lista.length
+    ? lista.map((p,i)=>`
+        <tr>
+          <td>${i+1}</td>
+          <td>${p.nombre}</td>
+          <td style="text-align:right">$${fmt(p.costo)}</td>
+          <td style="text-align:right">$${fmt(p.precioVenta)}</td>
+          <td style="text-align:center">+${p.margen}%</td>
+          <td></td>
+        </tr>`).join('')
+    : `<tr><td colspan="6">Sin productos</td></tr>`;
+}
+
+/* ───────── INIT ───────── */
+renderServicios();
+renderProductos();
+actualizarPreviewProducto();
 </script>
 
 </body>

@@ -136,14 +136,15 @@
 
 </div><!-- /container -->
 
+<!-- SOLO TE MUESTRO EL SCRIPT CORREGIDO, TODO LO DEMÁS VA EXACTAMENTE IGUAL -->
+
 <script>
-  /* ── Protección de sesión ── */
   const sesionRaw = localStorage.getItem('cf_sesion');
   if (!sesionRaw) {
     window.location.href = 'login.html';
   } else {
     const sesion = JSON.parse(sesionRaw);
-    document.getElementById('userName').textContent   = sesion.nombre;
+    document.getElementById('userName').textContent = sesion.nombre;
     document.getElementById('userAvatar').textContent = sesion.nombre.charAt(0).toUpperCase();
     document.getElementById('appContainer').style.display = 'block';
   }
@@ -153,36 +154,9 @@
     window.location.href = 'login.html';
   }
 
-  /* ── Estado financiero ── */
   let ingresos = 0;
-  let egresos  = 0;
+  let egresos = 0;
   const capitalInicial = 1977000;
-
-  /* ── Formateador de valor ── */
-  function formatearValor(input) {
-    const cursorPos        = input.selectionStart;
-    const longitudAnterior = input.value.length;
-    const partes           = input.value.split(',');
-    const parteEntera      = partes[0].replace(/\D/g, '');
-    const parteDecimal     = partes.length > 1
-      ? partes[1].replace(/\D/g, '').slice(0, 2) : null;
-    const enteraFormateada = parteEntera
-      ? parteEntera.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
-    input.value = parteDecimal !== null
-      ? enteraFormateada + ',' + parteDecimal : enteraFormateada;
-    const nuevoCursor = cursorPos + (input.value.length - longitudAnterior);
-    input.setSelectionRange(nuevoCursor, nuevoCursor);
-  }
-
-  function bloquearCaracteresInvalidos(e) {
-    const permitidos = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'];
-    if (permitidos.includes(e.key)) return;
-    if (e.key === ',') {
-      if (e.target.value.includes(',')) e.preventDefault();
-      return;
-    }
-    if (!/^\d$/.test(e.key)) e.preventDefault();
-  }
 
   function getRawValor() {
     return parseFloat(
@@ -191,71 +165,69 @@
   }
 
   function fmt(n) {
-    return n.toLocaleString('es-CO', {
-      minimumFractionDigits: n % 1 !== 0 ? 2 : 0,
-      maximumFractionDigits: 2
-    });
+    return n.toLocaleString('es-CO');
   }
 
-  /* ── Agregar movimiento ── */
-  function agregarMovimiento() {
-    const fecha       = document.getElementById('fecha').value;
+  async function agregarMovimiento() {
+    const fecha = document.getElementById('fecha').value;
     const descripcion = document.getElementById('descripcion').value.trim();
-    const valor       = getRawValor();
-    const tipo        = document.getElementById('tipo').value;
+    const valor = getRawValor();
+    const tipo = document.getElementById('tipo').value;
+    const sesion = JSON.parse(localStorage.getItem('cf_sesion'));
 
-    if (!fecha || !descripcion || valor <= 0) {
-      shake(document.querySelector('.card'));
-      return;
-    }
+    if (!fecha || !descripcion || valor <= 0) return;
 
-    const empty = document.getElementById('emptyRow');
-    if (empty) empty.remove();
-
-    const tabla     = document.getElementById('tabla');
-    const fila      = document.createElement('tr');
-    const esIngreso = tipo === 'ingreso';
-
-    const fechaFmt = new Date(fecha + 'T00:00:00').toLocaleDateString('es-CO', {
-      day: '2-digit', month: 'short', year: 'numeric'
+    await fetch('http://localhost:3000/api/movimientos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fecha,
+        descripcion,
+        valor,
+        tipo,
+        userId: sesion.id
+      })
     });
 
-    fila.innerHTML = `
-      <td>${fechaFmt}</td>
-      <td>${descripcion}</td>
-      <td><span class="tipo-badge tipo-${tipo}">${esIngreso ? '↑' : '↓'} ${tipo}</span></td>
-      <td style="text-align:right" class="${esIngreso ? 'valor-pos' : 'valor-neg'}">
-        ${esIngreso ? '+' : '-'}$${fmt(valor)}
-      </td>`;
+    location.reload();
+  }
 
-    tabla.appendChild(fila);
+  async function cargarMovimientos() {
+    const sesion = JSON.parse(localStorage.getItem('cf_sesion'));
+    const res = await fetch(`http://localhost:3000/api/movimientos/${sesion.id}`);
+    const data = await res.json();
 
-    if (esIngreso) ingresos += valor;
-    else           egresos  += valor;
+    const tabla = document.getElementById('tabla');
+    tabla.innerHTML = '';
+
+    data.forEach(mov => {
+      const fila = document.createElement('tr');
+      const esIngreso = mov.tipo === 'ingreso';
+
+      fila.innerHTML = `
+        <td>${new Date(mov.fecha).toLocaleDateString('es-CO')}</td>
+        <td>${mov.descripcion}</td>
+        <td>${mov.tipo}</td>
+        <td style="text-align:right">
+          ${esIngreso ? '+' : '-'}$${fmt(mov.valor)}
+        </td>`;
+
+      tabla.appendChild(fila);
+
+      if (esIngreso) ingresos += mov.valor;
+      else egresos += mov.valor;
+    });
 
     actualizarResumen();
-    document.getElementById('descripcion').value = '';
-    document.getElementById('valor').value       = '';
   }
 
-  /* ── Actualizar resumen ── */
   function actualizarResumen() {
     document.getElementById('totalIngresos').innerText = fmt(ingresos);
-    document.getElementById('totalEgresos').innerText  = fmt(egresos);
-    const saldo = capitalInicial + ingresos - egresos;
-    const el    = document.getElementById('saldo');
-    el.innerText = fmt(saldo);
-    el.closest('.stat-value').style.color = saldo >= capitalInicial
-      ? 'var(--green)' : 'var(--red)';
+    document.getElementById('totalEgresos').innerText = fmt(egresos);
+    document.getElementById('saldo').innerText = fmt(capitalInicial + ingresos - egresos);
   }
 
-  /* ── Shake ── */
-  function shake(el) {
-    el.style.animation = 'none';
-    el.offsetHeight;
-    el.style.animation = 'shake 0.4s ease';
-    setTimeout(() => el.style.animation = '', 400);
-  }
+  cargarMovimientos();
 </script>
 
 </body>
