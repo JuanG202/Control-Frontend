@@ -413,7 +413,7 @@ async function agregarServicio() {
 
   if (!nombre || precio <= 0) return;
 
-  await fetch('http://localhost:3000/api/servicios', {
+  await fetch('https://control-backend-kappa.vercel.app/api/servicios', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ nombre, precio, userId: sesion.id })
@@ -424,7 +424,7 @@ async function agregarServicio() {
 
 async function renderServicios() {
   const sesion = JSON.parse(localStorage.getItem('cf_sesion'));
-  const res = await fetch(`http://localhost:3000/api/servicios/${sesion.id}`);
+  const res = await fetch(`https://control-backend-kappa.vercel.app/api/servicios/${sesion.id}`);
   const lista = await res.json();
 
   const tbody = document.getElementById('tablaServicios');
@@ -455,7 +455,7 @@ async function agregarProducto() {
 
   const precioVenta = costo * (1 + margen / 100);
 
-  const res = await fetch('http://localhost:3000/api/productos', {
+  const res = await fetch('https://control-backend-kappa.vercel.app/api/productos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -483,7 +483,7 @@ async function agregarProducto() {
 
 async function renderProductos() {
   const sesion = JSON.parse(localStorage.getItem('cf_sesion'));
-  const res = await fetch(`http://localhost:3000/api/productos/${sesion.id}`);
+  const res = await fetch(`https://control-backend-kappa.vercel.app/api/productos/${sesion.id}`);
   const lista = await res.json();
 
   const tbody = document.getElementById('tablaProductos');

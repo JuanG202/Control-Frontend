@@ -177,7 +177,7 @@
 
     if (!fecha || !descripcion || valor <= 0) return;
 
-    await fetch('http://localhost:3000/api/movimientos', {
+    await fetch('https://control-backend-kappa.vercel.app/api/movimientos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -194,7 +194,7 @@
 
   async function cargarMovimientos() {
     const sesion = JSON.parse(localStorage.getItem('cf_sesion'));
-    const res = await fetch(`http://localhost:3000/api/movimientos/${sesion.id}`);
+    const res = await fetch(`https://control-backend-kappa.vercel.app/api/movimientos/${sesion.id}`);
     const data = await res.json();
 
     const tabla = document.getElementById('tabla');
